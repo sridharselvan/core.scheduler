@@ -103,18 +103,12 @@ def save_scheduler_config(form_data):
         schedule_data['job_id'] = get_unique_id()
         schedule_data['user_idn'] = get_loggedin_user_id()
 
-        valve_id = list()
-        for valve in form_data['ValveDetails']:
-            if valve['selected'] == True:
-                valve_id.append(valve['id'])
+        valve_id = [valve['id'] for valve in form_data['ValveDetails'] if valve['selected']]
 
         schedule_data['params'] = ','.join(valve_id)
         schedule_data['recurrence'] = form_data['recurs']
 
-        week_id = list()
-        for weekday in form_data['weekDays']:
-            if weekday['selected'] != False:
-                week_id.append(weekday['id'])
+        week_id = [weekday['id'] for weekday in form_data['weekDays'] if weekday['selected']]
 
         schedule_data['day_of_week'] = ','.join(week_id)
 
