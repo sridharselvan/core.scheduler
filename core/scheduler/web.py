@@ -26,6 +26,7 @@ from core.backend.utils.core_utils import (
 from core.db.model import (
     CodeScheduleTypeModel, JobDetailsModel, UserModel
 )
+from core.backend.utils.core_utils import decode
 # ----------- END: In-App Imports ---------- #
 
 
@@ -74,42 +75,19 @@ def save_scheduler_config(session, form_data):
 
 def search_scheduled_job(session, form_data):
 
-    _response_dict = {'result': list(), 'alert_type': None, 'alert_what': None, 'msg': None}
+    _response_dict = {'result': True, 'data': None, 'alert_type': None, 'alert_what': None, 'msg': None}
 
     search_data = dict()
     schedule_type = form_data['searchScheduleType']
 
-    code_schedule_type = CodeScheduleTypeModel.fetch_one(
-        session, schedule_type=schedule_type
+    scheduled_jobs = JobDetailsModel.scheduled_jobs(
+        session, data_as_dict=True, schedule_type=schedule_type
     )
 
-    if form_data['searchScheduleType'] == 'Select One':
-        search_data['is_active'] = 1
-    else:
-        search_data['schedule_type_idn'] = code_schedule_type.schedule_type_idn
+    for jobs in scheduled_jobs:
+        if 'user_name' in jobs:
+            jobs['user_name'] = decode(jobs['user_name'])
 
-    scheduled_job_data = JobDetailsModel.fetch(
-        session, **search_data
-    )
-
-    for jobs in scheduled_job_data:
-
-        result_set = dict()
-        code_schedule_type_data = CodeScheduleTypeModel.fetch_one(
-            session, schedule_type_idn=jobs.schedule_type_idn
-        )
-        
-        result_set['schedule_type'] = code_schedule_type_data.schedule_type
-        result_set['start_date'] = str(jobs.start_date)
-
-        scheduled_user_name = UserModel.fetch_user_data(
-            session, mode='one', user_idn=jobs.user_idn
-        )
-        result_set['user_name'] = "{0}, {1}".format(
-            scheduled_user_name.first_name, scheduled_user_name.last_name)
-
-        result_set['params'] = jobs.params
-
-        _response_dict['result'].append(result_set)
+    _response_dict.update({'data': scheduled_jobs})
 
     return _response_dict
