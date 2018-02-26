@@ -27,6 +27,7 @@ from core.db.model import (
     CodeScheduleTypeModel, JobDetailsModel, UserModel
 )
 from core.backend.utils.core_utils import decode
+from core.backend.config import view_client_config
 # ----------- END: In-App Imports ---------- #
 
 
@@ -84,10 +85,33 @@ def search_scheduled_job(session, form_data):
         session, data_as_dict=True, schedule_type=schedule_type
     )
 
+    client_config_data = view_client_config()
+
     for jobs in scheduled_jobs:
         if 'user_name' in jobs:
             jobs['user_name'] = decode(jobs['user_name'])
 
+        if 'params' in jobs:
+
+            jobs['params'] = ', '.join(
+                [client_config_data[idn]['name']
+                 for idn in jobs['params'].split(',')
+                 ]
+            )
+
     _response_dict.update({'data': scheduled_jobs})
+
+    return _response_dict
+
+
+def deactivate_scheduled_job(session, form_data):
+
+    _response_dict = {'result': True, 'data': None, 'alert_type': None, 'alert_what': None, 'msg': None}
+
+    deactivated_jobs = JobDetailsModel.deactivate_jobs(
+        session, job_details_idn = form_data['job_details_idn']
+    )
+
+    _response_dict.update({'data': deactivated_jobs})
 
     return _response_dict
