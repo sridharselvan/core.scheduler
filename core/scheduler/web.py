@@ -115,3 +115,41 @@ def deactivate_scheduled_job(session, form_data):
     _response_dict.update({'data': deactivated_jobs})
 
     return _response_dict
+
+def update_scheduled_job(session, form_data):
+
+    _response_dict = {'result': True, 'data': None, 'alert_type': None, 'alert_what': None, 'msg': None}
+
+    schedule_data = dict()
+    start_date = form_data['start_date']
+    string_date = "{0}-{1}-{2} {3}:{4}:00"\
+        .format(start_date['year'],start_date['month'],start_date['day'],start_date['hour'],start_date['mins'])    
+
+    code_schedule_type = CodeScheduleTypeModel.fetch_one(
+        session, schedule_type=form_data['type']
+    )
+
+    schedule_data['schedule_type_idn'] = code_schedule_type.schedule_type_idn
+
+    # TODO: move to constants
+    schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+    schedule_data['job_id'] = get_unique_id()
+    schedule_data['user_idn'] = get_loggedin_user_id()
+
+    valve_id = [valve['id'] for valve in form_data['ValveDetails'] if valve['selected']]
+
+    schedule_data['params'] = ','.join(valve_id)
+    schedule_data['recurrence'] = form_data['recurs']
+
+    week_id = [weekday['id'] for weekday in form_data['weekDays'] if weekday['selected']]
+
+    schedule_data['day_of_week'] = ','.join(week_id)
+    
+    updated_jobs = JobDetailsModel.update_jobs(
+        session, job_details_idn = form_data['job_details_idn'],
+        **schedule_data
+    )
+
+    _response_dict.update({'data': updated_jobs})
+
+    return _response_dict
