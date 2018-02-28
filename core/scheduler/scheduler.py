@@ -1,7 +1,31 @@
+# -*- coding: utf-8 -*-
 
+"""
+
+    Module :mod:``
+
+
+    LICENSE: The End User license agreement is located at the entry level.
+
+"""
+
+# ----------- START: Native Imports ---------- #
 import time
 
+from datetime import datetime, timedelta
+# ----------- END: Native Imports ---------- #
+
+# ----------- START: Third Party Imports ---------- #
 import simplejson as json
+
+from apscheduler.jobstores.base import ConflictingIdError
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+
+from core.scheduler.trigger import OneTimeTrigger, IntervalTrigger, CronTrigger
 
 from apscheduler.events import (
     EVENT_JOBSTORE_ADDED,
@@ -14,11 +38,25 @@ from apscheduler.events import (
     EVENT_JOB_REMOVED,
     EVENT_JOB_EXECUTED
 )
+# ----------- END: Third Party Imports ---------- #
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
+# ----------- START: In-App Imports ---------- #
+from core.constants import (
+    SCHEDULER_COALESCE,
+    SCHEDULER_MAX_INSTANCES,
+    SCHEDULER_DEFAULT_DELAY_BY_SECS,
+    SCHEDULER_THREAD_POOL_EXECUTOR_COUNT,
+    SCHEDULER_PROCESS_POOL_EXECUTOR_COUNT
+)
 
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from core.utils.utils import Singleton
+
+from core.utils.environ import get_jobs_db_details
+# ----------- START: In-App Imports ---------- #
+
+
+__all__ = []
+
 
 class SchedulerManager(object):
 
@@ -26,24 +64,20 @@ class SchedulerManager(object):
 
         self.is_scheduler_running = False
 
-        jobstore_type = 'sqlite'
-        jobstore_alias = 'job_store'
-        misfire_gracetime = 3600
-        scheduler_threads = 10
-
-        executors = dict()
+        jobs_db_path = get_jobs_db_details()['path']
 
         jobstores = {
-            'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
+            'default': SQLAlchemyJobStore(url='sqlite:///{}'.format(jobs_db_path))
         }
 
         executors = {
-            'default': ThreadPoolExecutor(20),
-            'processpool': ProcessPoolExecutor(5)
+            'default': ThreadPoolExecutor(SCHEDULER_THREAD_POOL_EXECUTOR_COUNT),
+            'processpool': ProcessPoolExecutor(SCHEDULER_PROCESS_POOL_EXECUTOR_COUNT)
         }
+
         job_defaults = {
-            'coalesce': False ,
-            'max_instances': 3
+            'coalesce': SCHEDULER_COALESCE,
+            'max_instances': SCHEDULER_MAX_INSTANCES
         }
 
         self.scheduler = BackgroundScheduler(
@@ -63,13 +97,6 @@ class SchedulerManager(object):
         time.sleep(2)
         self.start()
 
-
-class Singleton(type):
-    _instances = {}
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
 
 def job_trigger_callback(*args, **kwargs):
     print '................. CALLED ............. {}'.format(kwargs)
@@ -114,88 +141,59 @@ class TaskScheduler(SchedulerManager):
 
     def process_job(self, payload=None):
 
-        schedule_type = payload.get('schedule_type', '').lower().replace(' ', '')
+        job_id = payload['job_id']
 
-        recurrence = payload.get('recurrence')
-        start_date = {
-            'date': payload.get('date'),
-            'hour': payload.get('hour'),
-            'minute': payload.get('minute'),
-            'second': payload.get('second', '00') or '00',
-        }
+        schedule_type = payload['schedule_type'].lower().replace(' ', '')
 
-        day_of_week = payload.get('day_of_week')
+        start_date = payload['start_date']
+
+        start_date_str = """{} {}:{}:{}""".format(
+            start_date['date'],
+            start_date['hour'],
+            start_date['minute'],
+            start_date['second']
+        )
+
+        date_time_object = datetime.strptime(start_date_str, "%Y-%m-%d %H:%M:%S")
+
+        delay_by_seconds = payload.get('delay_by')
+
+        if delay_by_seconds:
+            delay_by_seconds = \
+                int(delay_by_seconds['hour']) * 60 * 60 + \
+                int(delay_by_seconds['minute']) * 60 + \
+                int(delay_by_seconds['second'])
+
+        date_time_object += timedelta(
+            seconds=delay_by_seconds or SCHEDULER_DEFAULT_DELAY_BY_SECS
+        )
+
+        trigger = {
+            'onetime': OneTimeTrigger(),
+            'daily': IntervalTrigger(),
+            'weekly': CronTrigger()
+        }[schedule_type]
 
         job_action = payload.get('job_action')
 
         if job_action not in ('add', 'update', 'remove', ):
             raise Exception('job action is wrong')
 
-        trigger_map = {
-            'onetime': OneTimeTrigger,
-            'daily': IntervalTrigger,
-            'weekly': CronTrigger
-        }
-
-        if schedule_type not in trigger_map:
-            raise Exception('schedule type is in-valid')
-
-        Trigger = trigger_map[schedule_type]
-
-        trigger = Trigger()
-
         if job_action == 'add':
 
-            job = trigger.add_job(
-                self.scheduler,
-                callback=job_trigger_callback,
-                schedule_type=schedule_type,
-                recurrence=recurrence,
-                start_date=start_date,
-                day_of_week=day_of_week,
-                job_action=job_action,
-                emit_event='InitiateProcess'
-            )
+            try:
+                job = trigger.add_job(
+                    self.scheduler,
+                    job_id,
+                    job_trigger_callback,
+                    run_date=date_time_object.strftime('%Y-%m-%d %H:%M:%S'),
+                    emit_event='InitiateProcess'
+                )
+            except ConflictingIdError as error:
+                print 'CRITICAL ERROR'
 
-            print "Created job:", job.id
+            else:
 
-
-class JobTrigger(object):
-    def __init__(self):
-        pass
-
-    def add_job(self, *args, **kwargs):
-        print 'Add new Job'
-
-    def update_job(self, *args, **kwargs):
-        print 'Update existing job'
-
-    def remove_job(self, *args, **kwargs):
-        print 'Remove job'
-
-
-class OneTimeTrigger(JobTrigger):
-
-    def add_job(self, scheduler, *args, **kw):
-
-        from uuid import uuid4
-        job_id = str(uuid4())
-
-        return scheduler.add_job(
-            kw['callback'],
-            trigger='date',
-            id=job_id,
-            args=None,
-            kwargs=dict(job_id=job_id, event=kw['emit_event']),
-            misfire_grace_time=60,
-            max_instances=1,
-        )
-
-
-class IntervalTrigger(JobTrigger):
-    pass
-
-
-class CronTrigger(JobTrigger):
-    pass
+                next_run_time = job.next_run_time.isoformat()
+                print next_run_time
 
