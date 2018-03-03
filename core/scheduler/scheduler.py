@@ -12,6 +12,8 @@
 # ----------- START: Native Imports ---------- #
 import time
 
+from copy import deepcopy
+
 from datetime import datetime, timedelta
 # ----------- END: Native Imports ---------- #
 
@@ -46,12 +48,17 @@ from core.constants import (
     SCHEDULER_MAX_INSTANCES,
     SCHEDULER_DEFAULT_DELAY_BY_SECS,
     SCHEDULER_THREAD_POOL_EXECUTOR_COUNT,
-    SCHEDULER_PROCESS_POOL_EXECUTOR_COUNT
+    SCHEDULER_PROCESS_POOL_EXECUTOR_COUNT,
+
+    SCHEDULER_SVC_LOGGER_TPL,
+    SCHEDULER_ACCESS_LOGGER_TPL
 )
 
 from core.utils.utils import Singleton
 
 from core.utils.environ import get_jobs_db_details
+
+from core.mq import SimpleCentralizedLogProducer
 # ----------- START: In-App Imports ---------- #
 
 
@@ -86,11 +93,48 @@ class SchedulerManager(object):
 
     def start(self):
         self.scheduler.start()
-        self.is_scheduler_running = True
+
+        _payload = deepcopy(SCHEDULER_SVC_LOGGER_TPL)
+
+        import pdb; pdb.set_trace() ## XXX: Remove This
+        if self.scheduler.state:
+            _payload['message'] = 'Successfully Started the Scheduler Service'
+
+            self.central_logger.publish(
+                _payload
+            )
+
+            self.is_scheduler_running = True
+        else:
+            _payload['message'] = 'Unable to Start the Scheduler Service'
+            _payload['log_level'] = 'ERROR'
+            _payload['status'] = 'FAILED'
+
+            self.central_logger.publish(
+                _payload
+            )
 
     def stop(self):
         self.scheduler.stop()
-        self.is_scheduler_running = False
+
+        _payload = deepcopy(SCHEDULER_SVC_LOGGER_TPL)
+
+        if not self.scheduler.state:
+            _payload['message'] = 'Shutting Down the Scheduler Service'
+
+            self.central_logger.publish(
+                _payload
+            )
+
+            self.is_scheduler_running = False
+        else:
+            _payload['message'] = 'Unable to Shutdown the Scheduler Service'
+            _payload['log_level'] = 'ERROR'
+            _payload['status'] = 'FAILED'
+
+            self.central_logger.publish(
+                _payload
+            )
 
     def restart(self):
         self.stop()
@@ -127,6 +171,8 @@ class TaskScheduler(SchedulerManager):
             EVENT_JOB_ADDED | EVENT_JOB_REMOVED | EVENT_JOBSTORE_ADDED | EVENT_JOBSTORE_REMOVED
         )
 
+        self.central_logger = SimpleCentralizedLogProducer()
+
     def __call__(self):
         self.start()
 
@@ -140,6 +186,8 @@ class TaskScheduler(SchedulerManager):
         print event, 'SCHEDULER EVENT'
 
     def process_job(self, payload=None):
+
+        central_logger = SimpleCentralizedLogProducer()
 
         job_id = payload['job_id']
 
@@ -190,10 +238,22 @@ class TaskScheduler(SchedulerManager):
                     emit_event='InitiateProcess'
                 )
             except ConflictingIdError as error:
-                print 'CRITICAL ERROR'
+                scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+                scheduler_access_tpl['job_id'] = job_id
+                scheduler_access_tpl['status'] = 'FAILED'
+                scheduler_access_tpl['error'] = str(error)
+                scheduler_access_tpl['message'] = 'Job with job_id: {} already exists'.format(job_id)
+
+                central_logger.publish(**scheduler_access_tpl)
 
             else:
 
-                next_run_time = job.next_run_time.isoformat()
-                print next_run_time
+                scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+                scheduler_access_tpl['job_id'] = job.id
+                scheduler_access_tpl['params'] = {
+                        'next_run_time': job.next_run_time.isoformat()
+                }
+                scheduler_access_tpl['message'] = 'Successfully scheduled an onetime job'
+
+                central_logger.publish(**scheduler_access_tpl)
 
