@@ -35,6 +35,7 @@ from apscheduler.events import (
     EVENT_SCHEDULER_START,
     EVENT_SCHEDULER_SHUTDOWN,
     EVENT_JOB_ADDED,
+    EVENT_JOB_MODIFIED,
     EVENT_JOB_ERROR,
     EVENT_JOB_MISSED,
     EVENT_JOB_REMOVED,
@@ -96,13 +97,10 @@ class SchedulerManager(object):
 
         _payload = deepcopy(SCHEDULER_SVC_LOGGER_TPL)
 
-        import pdb; pdb.set_trace() ## XXX: Remove This
         if self.scheduler.state:
             _payload['message'] = 'Successfully Started the Scheduler Service'
 
-            self.central_logger.publish(
-                _payload
-            )
+            SimpleCentralizedLogProducer().publish(_payload)
 
             self.is_scheduler_running = True
         else:
@@ -110,9 +108,7 @@ class SchedulerManager(object):
             _payload['log_level'] = 'ERROR'
             _payload['status'] = 'FAILED'
 
-            self.central_logger.publish(
-                _payload
-            )
+            SimpleCentralizedLogProducer().publish(_payload)
 
     def stop(self):
         self.scheduler.stop()
@@ -122,9 +118,7 @@ class SchedulerManager(object):
         if not self.scheduler.state:
             _payload['message'] = 'Shutting Down the Scheduler Service'
 
-            self.central_logger.publish(
-                _payload
-            )
+            SimpleCentralizedLogProducer().publish(_payload)
 
             self.is_scheduler_running = False
         else:
@@ -132,9 +126,7 @@ class SchedulerManager(object):
             _payload['log_level'] = 'ERROR'
             _payload['status'] = 'FAILED'
 
-            self.central_logger.publish(
-                _payload
-            )
+            SimpleCentralizedLogProducer().publish(_payload)
 
     def restart(self):
         self.stop()
@@ -157,37 +149,132 @@ class TaskScheduler(SchedulerManager):
         super(self.__class__, self).__init__()
 
         self.scheduler.add_listener(
-            self.job_event_listener,
-            EVENT_JOB_EXECUTED | EVENT_JOB_MISSED | EVENT_JOB_ERROR
+            self.callback_job_executed_event,
+            EVENT_JOB_EXECUTED
         )
 
         self.scheduler.add_listener(
-            self.sched_event_listener,
-            EVENT_SCHEDULER_SHUTDOWN | EVENT_SCHEDULER_START
+            self.callback_job_missed_event,
+            EVENT_JOB_MISSED
         )
 
         self.scheduler.add_listener(
-            self.jobstore_event_listener,
-            EVENT_JOB_ADDED | EVENT_JOB_REMOVED | EVENT_JOBSTORE_ADDED | EVENT_JOBSTORE_REMOVED
+            self.callback_job_error_event,
+            EVENT_JOB_ERROR
         )
 
-        self.central_logger = SimpleCentralizedLogProducer()
+        self.scheduler.add_listener(
+            self.callback_scheduler_start_event,
+            EVENT_SCHEDULER_START
+        )
+
+        self.scheduler.add_listener(
+            self.callback_scheduler_shutdown_event,
+            EVENT_SCHEDULER_START
+        )
+
+        self.scheduler.add_listener(
+            self.callback_job_add_event,
+            EVENT_JOB_ADDED
+        )
+
+        self.scheduler.add_listener(
+            self.callback_job_remove_event,
+            EVENT_JOB_REMOVED
+        )
+
+        self.scheduler.add_listener(
+            self.callback_job_update_event,
+            EVENT_JOB_MODIFIED
+        )
+
+        self.scheduler.add_listener(
+            self.callback_jobstore_event,
+            EVENT_JOBSTORE_ADDED | EVENT_JOBSTORE_REMOVED
+        )
+
+    def callback_scheduler_start_event(self, event):
+        pass
+
+    def callback_scheduler_shutdown_event(self, event):
+        pass
+
+    def callback_job_add_event(self, event):
+        message = 'EVENT_JOB_ADDED: Added job with job_id:{}'.format(
+            event.job_id
+        )
+
+        scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+        scheduler_access_tpl['job_id'] = event.job_id
+        scheduler_access_tpl['message'] = message
+
+        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+    def callback_job_update_event(self, event):
+        message = 'EVENT_JOB_MODIFIED: Updated job with job_id:{} to run at:{}'.format(
+            event.job_id, event.scheduled_run_time.isoformat()
+        )
+
+        scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+        scheduler_access_tpl['job_id'] = event.job_id
+        scheduler_access_tpl['message'] = message
+
+        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+    def callback_job_remove_event(self, event):
+        message = 'EVENT_JOB_REMOVED: Remooved job with job_id:{}'.format(
+            event.job_id
+        )
+
+        scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+        scheduler_access_tpl['job_id'] = event.job_id
+        scheduler_access_tpl['message'] = message
+
+        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+    def callback_jobstore_event(self, event):
+        pass
+
+    def callback_job_executed_event(self, event):
+        message = 'EVENT_JOB_EXECUTED: Scheduled job with job_id:{} at:{} was executed !'.format(
+            event.job_id, event.scheduled_run_time.isoformat()
+        )
+
+        scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+        scheduler_access_tpl['job_id'] = event.job_id
+        scheduler_access_tpl['message'] = message
+
+        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+    def callback_job_missed_event(self, event):
+        message = 'EVENT_JOB_MISSED: Scheduled job with job_id:{} at:{} was missed !'.format(
+            event.job_id, event.scheduled_run_time.isoformat()
+        )
+
+        scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+        scheduler_access_tpl['job_id'] = event.job_id
+        scheduler_access_tpl['message'] = message
+
+        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+    def callback_job_error_event(self, event):
+        message = 'EVENT_JOB_ERROR: Scheduled job with job_id:{} at:{} was failed !'.format(
+            event.job_id, event.scheduled_run_time.isoformat()
+        )
+
+        scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+        scheduler_access_tpl['job_id'] = event.job_id
+        scheduler_access_tpl['message'] = message
+        scheduler_access_tpl['status'] = 'FAILED'
+        scheduler_access_tpl['exception'] = event.exception
+        scheduler_access_tpl['error_trace'] = event.traceback
+
+        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
 
     def __call__(self):
         self.start()
 
-    def job_event_listener(self, event):
-        print event, 'JOB EVENT'
-
-    def jobstore_event_listener(self, event):
-        print event, 'JOBSTORE EVENT'
-
-    def sched_event_listener(self, event):
-        print event, 'SCHEDULER EVENT'
-
     def process_job(self, payload=None):
-
-        central_logger = SimpleCentralizedLogProducer()
 
         job_id = payload['job_id']
 
@@ -227,8 +314,8 @@ class TaskScheduler(SchedulerManager):
         if job_action not in ('add', 'update', 'remove', ):
             raise Exception('job action is wrong')
 
-        if job_action == 'add':
-
+        def _add_job():
+            """."""
             try:
                 job = trigger.add_job(
                     self.scheduler,
@@ -244,7 +331,7 @@ class TaskScheduler(SchedulerManager):
                 scheduler_access_tpl['error'] = str(error)
                 scheduler_access_tpl['message'] = 'Job with job_id: {} already exists'.format(job_id)
 
-                central_logger.publish(**scheduler_access_tpl)
+                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
 
             else:
 
@@ -255,5 +342,30 @@ class TaskScheduler(SchedulerManager):
                 }
                 scheduler_access_tpl['message'] = 'Successfully scheduled an onetime job'
 
-                central_logger.publish(**scheduler_access_tpl)
+                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+        if job_action == 'add':
+            _add_job()
+
+        if job_action == 'update':
+
+            job = self.scheduler.get_job(job_id=job_id)
+
+            if job:
+                self.scheduler.remove_job(job_id=job_id)
+
+                _add_job()
+
+            else:
+                scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+                scheduler_access_tpl['job_id'] = job_id
+                scheduler_access_tpl['status'] = 'FAILED'
+                scheduler_access_tpl['error'] = 'No job with job_id:{} exists'.format(job_id)
+                scheduler_access_tpl['message'] = 'No job found to update'
+
+                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+        if job_action == 'remove':
+
+            self.scheduler.remove_job(job_id=job_id)
 
