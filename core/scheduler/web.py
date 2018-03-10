@@ -28,6 +28,7 @@ from core.db.model import (
 )
 from core.backend.utils.core_utils import decode
 from core.backend.config import view_client_config
+from core.mq import RPCSchedulerPublisher
 # ----------- END: In-App Imports ---------- #
 
 
@@ -43,11 +44,13 @@ def save_scheduler_config(session, form_data):
 
     schedule_data = dict()
     start_date = form_data['start_date']
+    schedule_type = form_data['type']
+
     string_date = "{0}-{1}-{2} {3}:{4}:00"\
-        .format(start_date['year'],start_date['month'],start_date['day'],start_date['hour'],start_date['mins'])    
+        .format(start_date['year'],start_date['month'],start_date['day'],start_date['hour'],start_date['mins'])
 
     code_schedule_type = CodeScheduleTypeModel.fetch_one(
-        session, schedule_type=form_data['type']
+        session, schedule_type=schedule_type
     )
 
     schedule_data['schedule_type_idn'] = code_schedule_type.schedule_type_idn
@@ -65,6 +68,15 @@ def save_scheduler_config(session, form_data):
     week_id = [weekday['id'] for weekday in form_data['weekDays'] if weekday['selected']]
 
     schedule_data['day_of_week'] = ','.join(week_id)
+
+    rpc_response = RPCSchedulerPublisher().publish(
+        job_id=schedule_data['job_id'],
+        schedule_type=schedule_type.lower(),
+        job_action='add',
+        start_date=string_date, #schedule_data['start_date'],
+        day_of_week=schedule_data['day_of_week'],
+        recurrence=schedule_data['recurrence'],
+    )
 
     # Inserting schedule config into Job details
     job_details_idn = JobDetailsModel.insert(
@@ -123,7 +135,7 @@ def update_scheduled_job(session, form_data):
     schedule_data = dict()
     start_date = form_data['start_date']
     string_date = "{0}-{1}-{2} {3}:{4}:00"\
-        .format(start_date['year'],start_date['month'],start_date['day'],start_date['hour'],start_date['mins'])    
+        .format(start_date['year'],start_date['month'],start_date['day'],start_date['hour'],start_date['mins'])
 
     code_schedule_type = CodeScheduleTypeModel.fetch_one(
         session, schedule_type=form_data['type']
@@ -144,7 +156,7 @@ def update_scheduled_job(session, form_data):
     week_id = [weekday['id'] for weekday in form_data['weekDays'] if weekday['selected']]
 
     schedule_data['day_of_week'] = ','.join(week_id)
-    
+
     updated_jobs = JobDetailsModel.update_jobs(
         session, job_details_idn = form_data['job_details_idn'],
         **schedule_data

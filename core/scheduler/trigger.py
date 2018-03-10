@@ -34,15 +34,17 @@ class JobTrigger(object):
     def update_job(self, *args, **kwargs):
         raise NotImplementedError
 
-    def remove_job(self, *args, **kwargs):
-        raise NotImplementedError
+    def remove_job(self, scheduler, job_id):
+
+        if scheduler.get_job(job_id=job_id):
+            scheduler.remove_job(job_id=job_id)
 
 
 class OneTimeTrigger(JobTrigger):
 
     def add_job(self, scheduler, job_id, callback, *args, **kw):
 
-        return scheduler.add_job(
+        job = scheduler.add_job(
             callback,
             trigger='date',
             id=job_id,
@@ -52,6 +54,15 @@ class OneTimeTrigger(JobTrigger):
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
             max_instances=SCHEDULER_MAX_INSTANCES,
         )
+
+
+        return job
+
+    def update_job(self, scheduler, job_id, callback, *args, **kw):
+        """."""
+        self.remove_job(scheduler, job_id=job_id)
+
+        self.add_job(scheduler, job_id, callback, *args, **kw)
 
 
 class IntervalTrigger(JobTrigger):

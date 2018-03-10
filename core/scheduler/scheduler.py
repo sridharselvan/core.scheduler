@@ -282,14 +282,7 @@ class TaskScheduler(SchedulerManager):
 
         start_date = payload['start_date']
 
-        start_date_str = """{} {}:{}:{}""".format(
-            start_date['date'],
-            start_date['hour'],
-            start_date['minute'],
-            start_date['second']
-        )
-
-        date_time_object = datetime.strptime(start_date_str, "%Y-%m-%d %H:%M:%S")
+        date_time_object = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
 
         delay_by_seconds = payload.get('delay_by')
 
@@ -368,4 +361,3 @@ class TaskScheduler(SchedulerManager):
         if job_action == 'remove':
 
             self.scheduler.remove_job(job_id=job_id)
-
