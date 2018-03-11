@@ -276,7 +276,98 @@ class TaskScheduler(SchedulerManager):
 
     def process_job(self, payload=None):
 
+        def _add_job():
+            """."""
+            try:
+                job = trigger.add_job(
+                    self.scheduler,
+                    job_id,
+                    job_trigger_callback,
+                    run_date=date_time_object.strftime('%Y-%m-%d %H:%M:%S'),
+                    emit_event='InitiateProcess'
+                )
+            except ConflictingIdError as error:
+                scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+                scheduler_access_tpl['job_id'] = job_id
+                scheduler_access_tpl['status'] = 'FAILED'
+                scheduler_access_tpl['error'] = str(error)
+                scheduler_access_tpl['message'] = 'Job with job_id: {} already exists'.format(job_id)
+
+                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+                return False, scheduler_access_tpl['message']
+
+            else:
+
+                scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
+                scheduler_access_tpl['job_id'] = job.id
+                scheduler_access_tpl['params'] = {
+                        'next_run_time': job.next_run_time.isoformat()
+                }
+                scheduler_access_tpl['message'] = 'Successfully scheduled an onetime job'
+
+                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+
+                return True, scheduler_access_tpl['message']
+
+        response = {
+            'result': True,
+            'message': '',
+            'error_message': '',
+            'error_trace': ''
+        }
+
+        job_action = payload.get('job_action')
+
+        _allowed_job_actions = ('add', 'update', 'remove', )
+
+        if job_action not in _allowed_job_actions:
+
+            _err_msg = 'Argument job_action is not one among {}'.format(_allowed_job_actions)
+
+            response.update({'result': False,
+                             'message': '',
+                             'error_message': _err_msg,
+                             'error_trace': ''
+                             })
+
+            return response
+
         job_id = payload['job_id']
+
+        if job_action == 'remove':
+
+            if self.scheduler.get_job(job_id=job_id):
+                self.scheduler.remove_job(job_id=job_id)
+
+                if self.scheduler.get_job(job_id=job_id):
+                    _message = 'Unable to remove job with job_id({})'.format(job_id)
+
+                    response.update({'result': False,
+                                     'message': '',
+                                     'error_message': _message,
+                                     'error_trace': ''
+                                     })
+
+                else:
+                    _message = 'Successfully removed the job with job_id({})'.format(job_id)
+
+                    response.update({'result': True,
+                                     'message': _message,
+                                     'error_message': '',
+                                     'error_trace': ''
+                                     })
+
+            else:
+                _message = 'No job found with job_id({})'.format(job_id)
+
+                response.update({'result': False,
+                                 'message': '',
+                                 'error_message': _message,
+                                 'error_trace': ''
+                                 })
+
+            return response
 
         schedule_type = payload['schedule_type'].lower().replace(' ', '')
 
@@ -302,52 +393,30 @@ class TaskScheduler(SchedulerManager):
             'weekly': CronTrigger()
         }[schedule_type]
 
-        job_action = payload.get('job_action')
-
-        if job_action not in ('add', 'update', 'remove', ):
-            raise Exception('job action is wrong')
-
-        def _add_job():
-            """."""
-            try:
-                job = trigger.add_job(
-                    self.scheduler,
-                    job_id,
-                    job_trigger_callback,
-                    run_date=date_time_object.strftime('%Y-%m-%d %H:%M:%S'),
-                    emit_event='InitiateProcess'
-                )
-            except ConflictingIdError as error:
-                scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
-                scheduler_access_tpl['job_id'] = job_id
-                scheduler_access_tpl['status'] = 'FAILED'
-                scheduler_access_tpl['error'] = str(error)
-                scheduler_access_tpl['message'] = 'Job with job_id: {} already exists'.format(job_id)
-
-                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
-
-            else:
-
-                scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
-                scheduler_access_tpl['job_id'] = job.id
-                scheduler_access_tpl['params'] = {
-                        'next_run_time': job.next_run_time.isoformat()
-                }
-                scheduler_access_tpl['message'] = 'Successfully scheduled an onetime job'
-
-                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
-
         if job_action == 'add':
-            _add_job()
+            _result, _message = _add_job()
 
-        if job_action == 'update':
+            if _result:
+                response.update({'result': True,
+                                 'message': _message,
+                                 'error_message': '',
+                                 'error_trace': ''
+                                 })
+            else:
+                response.update({'result': False,
+                                 'message': '',
+                                 'error_message': _message,
+                                 'error_trace': ''
+                                 })
+
+        elif job_action == 'update':
 
             job = self.scheduler.get_job(job_id=job_id)
 
             if job:
                 self.scheduler.remove_job(job_id=job_id)
 
-                _add_job()
+                _, _ = _add_job()
 
             else:
                 scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
@@ -358,6 +427,4 @@ class TaskScheduler(SchedulerManager):
 
                 SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
 
-        if job_action == 'remove':
-
-            self.scheduler.remove_job(job_id=job_id)
+        return response
