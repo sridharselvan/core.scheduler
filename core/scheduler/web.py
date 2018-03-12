@@ -29,6 +29,7 @@ from core.db.model import (
 from core.backend.utils.core_utils import decode
 from core.backend.config import view_client_config
 from core.mq import RPCSchedulerPublisher
+from core.backend.utils.core_utils import AutoSession
 # ----------- END: In-App Imports ---------- #
 
 
@@ -121,7 +122,12 @@ def search_scheduled_job(session, form_data):
 
 
 def deactivate_completed_onetime_jobs(job_id):
-    print "\n\n>>>>> Deactivating onetime jobs\n\n"
+
+    with AutoSession() as session:
+        JobDetailsModel.deactivate_jobs(
+            session,
+            job_id=job_id
+        )
 
 
 def deactivate_scheduled_job(session, form_data):
