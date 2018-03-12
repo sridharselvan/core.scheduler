@@ -63,7 +63,9 @@ def save_scheduler_config(session, form_data):
     valve_id = [valve['id'] for valve in form_data['ValveDetails'] if valve['selected']]
 
     schedule_data['params'] = ','.join(valve_id)
-    schedule_data['recurrence'] = form_data['recurs']
+    #schedule_data['recurrence'] = int(form_data['recurs'])
+    recurrence = [int(value['id']) for value in form_data['recurs'] if value['selected']]
+    schedule_data['recurrence']  = recurrence
 
     week_id = [weekday['id'] for weekday in form_data['weekDays'] if weekday['selected']]
 
@@ -78,7 +80,10 @@ def save_scheduler_config(session, form_data):
         recurrence=schedule_data['recurrence'],
     )
 
+    schedule_data['recurrence']  = ','.join(str(recur) for recur in recurrence)
+
     # Inserting schedule config into Job details
+    import pdb;pdb.set_trace()
     job_details_idn = JobDetailsModel.insert(
         session, **schedule_data
     ).job_details_idn
