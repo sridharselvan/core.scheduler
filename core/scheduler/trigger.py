@@ -50,7 +50,7 @@ class OneTimeTrigger(JobTrigger):
             id=job_id,
             run_date=kw['run_date'],
             args=list(),
-            kwargs=dict(job_id=job_id, event=kw['emit_event']),
+            kwargs=dict(job_id=job_id, event=kw['emit_event'], type='onetime'),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
             max_instances=SCHEDULER_MAX_INSTANCES,
         )

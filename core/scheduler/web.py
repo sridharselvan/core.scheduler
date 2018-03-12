@@ -120,11 +120,26 @@ def search_scheduled_job(session, form_data):
     return _response_dict
 
 
+def deactivate_completed_onetime_jobs(job_id):
+    print "\n\n>>>>> Deactivating onetime jobs\n\n"
+
+
 def deactivate_scheduled_job(session, form_data):
 
     _response_dict = {'result': True, 'data': None, 'alert_type': None, 'alert_what': None, 'msg': None}
 
-    job_id = JobDetailsModel.fetch_one(session, job_details_idn=11).job_id
+    job = JobDetailsModel.fetch_one(session, job_details_idn=11)
+
+    if not job:
+        _response_dict.update({'result': False,
+                               'data': None,
+                               'alert_type': 'alert',
+                               'alert_what': None,
+                               'msg': 'Job does not available for deactivation'
+                               })
+        return _response_dict
+
+    job_id = job.job_id
 
     rpc_response = RPCSchedulerPublisher().publish(
         job_id=job_id,
@@ -153,6 +168,8 @@ def update_scheduled_job(session, form_data):
 
     schedule_data = dict()
     start_date = form_data['start_date']
+    job_id = form_data['job_id']
+
     string_date = "{0}-{1}-{2} {3}:{4}:00"\
         .format(start_date['year'],start_date['month'],start_date['day'],start_date['hour'],start_date['mins'])
 
@@ -164,7 +181,7 @@ def update_scheduled_job(session, form_data):
 
     # TODO: move to constants
     schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
-    schedule_data['job_id'] = get_unique_id() # XXX: Get from form data
+    schedule_data['job_id'] = job_id
     schedule_data['user_idn'] = get_loggedin_user_id()
 
     valve_id = [valve['id'] for valve in form_data['ValveDetails'] if valve['selected']]

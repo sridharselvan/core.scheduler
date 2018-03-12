@@ -60,6 +60,8 @@ from core.utils.utils import Singleton
 from core.utils.environ import get_jobs_db_details
 
 from core.mq import SimpleCentralizedLogProducer
+
+from core.scheduler.web import deactivate_completed_onetime_jobs
 # ----------- START: In-App Imports ---------- #
 
 
@@ -135,7 +137,11 @@ class SchedulerManager(object):
 
 
 def job_trigger_callback(*args, **kwargs):
+
     print '................. CALLED ............. {}'.format(kwargs)
+
+    if 'type' in kwargs and kwargs['type'].lower() == 'onetime':
+        deactivate_completed_onetime_jobs(kwargs['job_id'])
 
 
 class TaskScheduler(SchedulerManager):
