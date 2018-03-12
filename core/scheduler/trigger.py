@@ -66,7 +66,23 @@ class OneTimeTrigger(JobTrigger):
 
 
 class IntervalTrigger(JobTrigger):
-    pass
+    
+    def add_job(self, scheduler, job_id, callback, *args, **kw):
+
+        job = scheduler.add_job(
+            callback,
+            trigger='cron',
+            id=job_id,
+            start_date=kw['run_date'],
+            minute='*/{}'.format(kw['recurrence']),
+            args=list(),
+            kwargs=dict(job_id=job_id, event=kw['emit_event']),
+            misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
+            max_instances=SCHEDULER_MAX_INSTANCES,
+        )
+
+
+        return job
 
 
 class CronTrigger(JobTrigger):

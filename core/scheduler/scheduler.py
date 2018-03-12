@@ -290,6 +290,7 @@ class TaskScheduler(SchedulerManager):
                     job_id,
                     job_trigger_callback,
                     run_date=date_time_object.strftime('%Y-%m-%d %H:%M:%S'),
+                    recurrence=1,
                     emit_event='InitiateProcess'
                 )
             except ConflictingIdError as error:
@@ -310,7 +311,7 @@ class TaskScheduler(SchedulerManager):
                 scheduler_access_tpl['params'] = {
                         'next_run_time': job.next_run_time.isoformat()
                 }
-                scheduler_access_tpl['message'] = 'Successfully scheduled an onetime job'
+                scheduler_access_tpl['message'] = 'Successfully scheduled {} job'.format(schedule_type)
 
                 SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
 
