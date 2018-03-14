@@ -108,7 +108,7 @@ def search_scheduled_job(session, form_data):
 
     for jobs in scheduled_jobs:
 
-        _recur_freq = [int(e.strip()) for e in jobs['recurrence'].split(',')]
+        _recur_freq = [int(e.strip()) for e in jobs['recurrence'].split(',') if jobs['recurrence']]
 
         jobs['recurrence'] = [
             idx if idx in _recur_freq else value
@@ -199,10 +199,7 @@ def update_scheduled_job(session, form_data):
 
     # TODO: move to constants
     schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
-<<<<<<< HEAD
     schedule_data['job_id'] = job_id
-=======
->>>>>>> daily-jobs
     schedule_data['user_idn'] = get_loggedin_user_id()
 
     valve_id = [valve['id'] for valve in form_data['ValveDetails'] if valve['selected']]
