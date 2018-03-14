@@ -289,8 +289,8 @@ class TaskScheduler(SchedulerManager):
                     self.scheduler,
                     job_id,
                     job_trigger_callback,
-                    run_date=date_time_object.strftime('%Y-%m-%d %H:%M:%S'),
-                    recurrence=1,
+                    run_date=date_time_object,
+                    recurrence=payload['recurrence'],
                     emit_event='InitiateProcess'
                 )
             except ConflictingIdError as error:

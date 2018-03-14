@@ -48,7 +48,7 @@ class OneTimeTrigger(JobTrigger):
             callback,
             trigger='date',
             id=job_id,
-            run_date=kw['run_date'],
+            run_date=kw['run_date'].strftime('%Y-%m-%d %H:%M:%S'),
             args=list(),
             kwargs=dict(job_id=job_id, event=kw['emit_event'], type='onetime'),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
@@ -66,15 +66,18 @@ class OneTimeTrigger(JobTrigger):
 
 
 class IntervalTrigger(JobTrigger):
-    
+
     def add_job(self, scheduler, job_id, callback, *args, **kw):
 
         job = scheduler.add_job(
             callback,
             trigger='cron',
             id=job_id,
-            start_date=kw['run_date'],
-            minute='*/{}'.format(kw['recurrence']),
+            start_date=kw['run_date'].strftime('%Y-%m-%d %H:%M:%S'),
+            day='{}'.format(kw['recurrence']),
+            hour=kw['run_date'].hour,
+            minute=kw['run_date'].minute,
+            second=kw['run_date'].second,
             args=list(),
             kwargs=dict(job_id=job_id, event=kw['emit_event']),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,

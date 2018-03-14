@@ -65,7 +65,7 @@ def save_scheduler_config(session, form_data):
 
     schedule_data['params'] = ','.join(valve_id)
     #schedule_data['recurrence'] = int(form_data['recurs'])
-    recurrence = [int(value['id']) for value in form_data['recurs'] if value['selected']]
+    recurrence = ','.join([str(int(value['id'])) for value in form_data['recurs'] if value['selected']])
     schedule_data['recurrence']  = recurrence
 
     week_id = [weekday['id'] for weekday in form_data['weekDays'] if weekday['selected']]
@@ -107,6 +107,16 @@ def search_scheduled_job(session, form_data):
     client_config_data = view_client_config()
 
     for jobs in scheduled_jobs:
+
+        _recur_freq = [int(e.strip()) for e in jobs['recurrence'].split(',')]
+
+        jobs['recurrence'] = [
+            idx if idx in _recur_freq else value
+            for idx, value in enumerate(
+                [-1] * (5 if schedule_type.lower() == 'weekly' else 31), 1
+            )
+        ]
+
         if 'user_name' in jobs:
             jobs['user_name'] = decode(jobs['user_name'])
 
@@ -189,13 +199,17 @@ def update_scheduled_job(session, form_data):
 
     # TODO: move to constants
     schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+<<<<<<< HEAD
     schedule_data['job_id'] = job_id
+=======
+>>>>>>> daily-jobs
     schedule_data['user_idn'] = get_loggedin_user_id()
 
     valve_id = [valve['id'] for valve in form_data['ValveDetails'] if valve['selected']]
-
     schedule_data['params'] = ','.join(valve_id)
-    schedule_data['recurrence'] = form_data['recurs']
+
+    recurrence = [str(value['id']) for value in form_data['recurs'] if value['selected']]
+    schedule_data['recurrence'] = ','.join(recurrence)
 
     week_id = [weekday['id'] for weekday in form_data['weekDays'] if weekday['selected']]
 
