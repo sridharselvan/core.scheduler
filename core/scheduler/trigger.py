@@ -10,6 +10,7 @@
 """
 
 # ----------- START: Native Imports ---------- #
+import itertools
 # ----------- END: Native Imports ---------- #
 
 # ----------- START: Third Party Imports ---------- #
@@ -20,6 +21,8 @@ from core.constants import (
     SCHEDULER_MAX_INSTANCES,
     SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS
 )
+
+from core.utils.utils import get_ordinal
 # ----------- START: In-App Imports ---------- #
 
 
@@ -29,9 +32,6 @@ __all__ = []
 class JobTrigger(object):
 
     def add_job(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def update_job(self, *args, **kwargs):
         raise NotImplementedError
 
     def remove_job(self, scheduler, job_id):
@@ -58,11 +58,11 @@ class OneTimeTrigger(JobTrigger):
 
         return job
 
-    def update_job(self, scheduler, job_id, callback, *args, **kw):
-        """."""
-        self.remove_job(scheduler, job_id=job_id)
+    # def update_job(self, scheduler, job_id, callback, *args, **kw):
+    #     """."""
+    #     self.remove_job(scheduler, job_id=job_id)
 
-        self.add_job(scheduler, job_id, callback, *args, **kw)
+    #     self.add_job(scheduler, job_id, callback, *args, **kw)
 
 
 class IntervalTrigger(JobTrigger):
@@ -89,5 +89,33 @@ class IntervalTrigger(JobTrigger):
 
 
 class CronTrigger(JobTrigger):
-    pass
+    
+    def add_job(self, scheduler, job_id, callback, *args, **kw):
+
+        _day = ', '.join(
+            ['{} {}'.format(get_ordinal(_day), _week) for _day, _week in itertools.product(kw['recurrence'].split(','), kw['day_of_week'].split(','))
+             ]
+        )
+
+        job = scheduler.add_job(
+            callback,
+            trigger='cron',
+            id=job_id,
+            start_date=kw['run_date'].strftime('%Y-%m-%d %H:%M:%S'),
+            #week='',# '{}'.format(kw['recurrence']),
+            #day_of_week='1st sun, 2nd tue', #'{}'.format(kw['day_of_week']),
+            day=_day,
+            month='1-12',
+            hour=kw['run_date'].hour,
+            minute=kw['run_date'].minute,
+            second=kw['run_date'].second,
+            args=list(),
+            kwargs=dict(job_id=job_id, event=kw['emit_event']),
+            misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
+            max_instances=SCHEDULER_MAX_INSTANCES,
+        )
+
+
+        return job
+
 

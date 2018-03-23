@@ -291,6 +291,7 @@ class TaskScheduler(SchedulerManager):
                     job_trigger_callback,
                     run_date=date_time_object,
                     recurrence=payload['recurrence'],
+                    day_of_week=payload['day_of_week'],
                     emit_event='InitiateProcess'
                 )
             except ConflictingIdError as error:
