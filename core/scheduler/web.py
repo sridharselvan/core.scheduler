@@ -146,7 +146,7 @@ def deactivate_scheduled_job(session, form_data):
 
     _response_dict = {'result': True, 'data': None, 'alert_type': None, 'alert_what': None, 'msg': None}
 
-    job = JobDetailsModel.fetch_one(session, job_details_idn=11)
+    job = JobDetailsModel.fetch_one(session, job_details_idn=form_data['job_details_idn'])
 
     if not job:
         _response_dict.update({'result': False,
