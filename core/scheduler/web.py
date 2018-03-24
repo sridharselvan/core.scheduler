@@ -113,7 +113,7 @@ def search_scheduled_job(session, form_data):
         jobs['recurrence'] = [
             idx if idx in _recur_freq else value
             for idx, value in enumerate(
-                [-1] * (5 if schedule_type.lower() == 'weekly' else 31), 1
+                [-1] * (5 if jobs['schedule_type'].lower() == 'weekly' else 31), 1
             )
         ]
 
