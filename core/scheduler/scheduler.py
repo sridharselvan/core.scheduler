@@ -26,6 +26,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.jobstores.memory import MemoryJobStore
 
 from core.scheduler.trigger import OneTimeTrigger, IntervalTrigger, CronTrigger
 
@@ -77,7 +78,8 @@ class SchedulerManager(object):
         jobs_db_path = get_jobs_db_details()['path']
 
         jobstores = {
-            'default': SQLAlchemyJobStore(url='sqlite:///{}'.format(jobs_db_path))
+            #'default': SQLAlchemyJobStore(url='sqlite:///{}'.format(jobs_db_path))
+            'default': MemoryJobStore()
         }
 
         executors = {
@@ -105,6 +107,7 @@ class SchedulerManager(object):
             SimpleCentralizedLogProducer().publish(_payload)
 
             self.is_scheduler_running = True
+
         else:
             _payload['message'] = 'Unable to Start the Scheduler Service'
             _payload['log_level'] = 'ERROR'
