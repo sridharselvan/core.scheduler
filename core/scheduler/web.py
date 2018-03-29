@@ -81,10 +81,12 @@ def save_scheduler_config(session, form_data):
         recurrence=schedule_data['recurrence'],
     )
 
-    if rpc_response['result']:
+    _result, _response = rpc_response if rpc_response else (False, dict())
+
+    if _result:
         # Inserting schedule config into Job details
         job_details_idn = JobDetailsModel.insert(
-            session, **schedule_data
+            session, next_run_time=_response['next_run_time'], **schedule_data
         ).job_details_idn
     else:
         # Report the error
@@ -164,7 +166,10 @@ def deactivate_scheduled_job(session, form_data):
         job_action='remove',
     )
 
-    if rpc_response['result']:
+    _result, _response = rpc_response if rpc_response else (False, dict())
+
+    if _result:
+
         # Deactivated the Job
         deactivated_jobs = JobDetailsModel.deactivate_jobs(
             session, job_details_idn = form_data['job_details_idn']
@@ -174,7 +179,7 @@ def deactivate_scheduled_job(session, form_data):
 
     else:
         # Report the error
-        print "sdfdsfsdfsdfsadf"
+        pass
 
     return _response_dict
 
@@ -221,12 +226,19 @@ def update_scheduled_job(session, form_data):
         recurrence=schedule_data['recurrence'],
     )
 
-    if rpc_response['result']:
+    _result, _response = rpc_response if rpc_response else (False, dict())
+
+    if _result:
+        _updates = {
+            'next_run_time': _response['next_run_time'], 
+        }
+        _updates.update(schedule_data)
+
         # Updating the scheduled Job
         updated_jobs = JobDetailsModel.update_jobs(
             session,
             where_condition={'job_details_idn': form_data['job_details_idn']},
-            updates=schedule_data
+            updates=_updates
         )
 
         _response_dict.update({'data': updated_jobs})

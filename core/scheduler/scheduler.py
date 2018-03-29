@@ -269,7 +269,7 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
         job = self.scheduler.get_job(job_id=event.job_id)
-        import pdb;pdb.set_trace()
+
         if job:
             with AutoSession() as session:
                 _updates = {'next_run_time': job.next_run_time.isoformat()}
@@ -334,14 +334,12 @@ class TaskScheduler(SchedulerManager):
 
                 scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
                 scheduler_access_tpl['job_id'] = job.id
-                scheduler_access_tpl['params'] = {
-                        'next_run_time': job.next_run_time.isoformat()
-                }
+                scheduler_access_tpl['next_run_time'] = job.next_run_time.isoformat()
                 scheduler_access_tpl['message'] = 'Successfully scheduled {} job'.format(schedule_type)
 
                 SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
 
-                return True, scheduler_access_tpl['message']
+                return True, scheduler_access_tpl
 
         response = {
             'result': True,
@@ -364,7 +362,7 @@ class TaskScheduler(SchedulerManager):
                              'error_trace': ''
                              })
 
-            return response
+            return False, response
 
         job_id = payload['job_id']
 
@@ -400,7 +398,7 @@ class TaskScheduler(SchedulerManager):
                                  'error_trace': ''
                                  })
 
-            return response
+            return response['result'], response
 
         schedule_type = payload['schedule_type'].lower().replace(' ', '')
 
@@ -427,20 +425,7 @@ class TaskScheduler(SchedulerManager):
         }[schedule_type]
 
         if job_action == 'add':
-            _result, _message = _add_job()
-
-            if _result:
-                response.update({'result': True,
-                                 'message': _message,
-                                 'error_message': '',
-                                 'error_trace': ''
-                                 })
-            else:
-                response.update({'result': False,
-                                 'message': '',
-                                 'error_message': _message,
-                                 'error_trace': ''
-                                 })
+            _result, _response = _add_job()
 
         elif job_action == 'update':
 
@@ -449,19 +434,6 @@ class TaskScheduler(SchedulerManager):
             if job:
                 self.scheduler.remove_job(job_id=job_id)
 
-            _result, _message = _add_job()
+            _result, _response = _add_job()
 
-            if _result:
-                response.update({'result': True,
-                                 'message': _message,
-                                 'error_message': '',
-                                 'error_trace': ''
-                                 })
-            else:
-                response.update({'result': False,
-                                 'message': '',
-                                 'error_message': _message,
-                                 'error_trace': ''
-                                 })
-
-        return response
+        return _result, _response
