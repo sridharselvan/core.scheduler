@@ -174,7 +174,7 @@ def deactivate_scheduled_job(session, form_data):
 
     else:
         # Report the error
-        pass
+        print "sdfdsfsdfsdfsadf"
 
     return _response_dict
 
@@ -224,8 +224,9 @@ def update_scheduled_job(session, form_data):
     if rpc_response['result']:
         # Updating the scheduled Job
         updated_jobs = JobDetailsModel.update_jobs(
-            session, job_details_idn = form_data['job_details_idn'],
-            **schedule_data
+            session,
+            where_condition={'job_details_idn': form_data['job_details_idn']},
+            updates=schedule_data
         )
 
         _response_dict.update({'data': updated_jobs})

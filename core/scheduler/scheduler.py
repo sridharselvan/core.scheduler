@@ -53,7 +53,8 @@ from core.constants import (
     SCHEDULER_PROCESS_POOL_EXECUTOR_COUNT,
 
     SCHEDULER_SVC_LOGGER_TPL,
-    SCHEDULER_ACCESS_LOGGER_TPL
+    SCHEDULER_ACCESS_LOGGER_TPL,
+    INITIATED
 )
 
 from core.utils.utils import Singleton
@@ -63,6 +64,12 @@ from core.utils.environ import get_jobs_db_details
 from core.mq import SimpleCentralizedLogProducer
 
 from core.scheduler.web import deactivate_completed_onetime_jobs
+
+from core.db.model import (
+    JobRunLogModel, CodeStatusModel, JobDetailsModel
+)
+
+from core.backend.utils.core_utils import AutoSession
 # ----------- START: In-App Imports ---------- #
 
 
@@ -142,6 +149,15 @@ class SchedulerManager(object):
 def job_trigger_callback(*args, **kwargs):
 
     print '................. CALLED ............. {}'.format(kwargs)
+
+    #Inserting into job_run_log table
+    with AutoSession() as session:
+        _params = {
+            'message':'tree',
+            'job_id':kwargs['job_id'], 
+            'status_idn':CodeStatusModel.fetch_status_idn(session, status=INITIATED).status_idn
+        }
+        JobRunLogModel.create_run_log(session, **_params)
 
     if 'type' in kwargs and kwargs['type'].lower() == 'onetime':
         deactivate_completed_onetime_jobs(kwargs['job_id'])
@@ -252,6 +268,12 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
+        job = self.scheduler.get_job(job_id=event.job_id)
+        import pdb;pdb.set_trace()
+        if job:
+            with AutoSession() as session:
+                _updates = {'next_run_time': job.next_run_time.isoformat()}
+                JobDetailsModel.update_jobs(session, where_condition={'job_id':event.job_id}, updates=_updates)
 
         SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
 
@@ -427,15 +449,19 @@ class TaskScheduler(SchedulerManager):
             if job:
                 self.scheduler.remove_job(job_id=job_id)
 
-                _, _ = _add_job()
+            _result, _message = _add_job()
 
+            if _result:
+                response.update({'result': True,
+                                 'message': _message,
+                                 'error_message': '',
+                                 'error_trace': ''
+                                 })
             else:
-                scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
-                scheduler_access_tpl['job_id'] = job_id
-                scheduler_access_tpl['status'] = 'FAILED'
-                scheduler_access_tpl['error'] = 'No job with job_id:{} exists'.format(job_id)
-                scheduler_access_tpl['message'] = 'No job found to update'
-
-                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+                response.update({'result': False,
+                                 'message': '',
+                                 'error_message': _message,
+                                 'error_trace': ''
+                                 })
 
         return response
