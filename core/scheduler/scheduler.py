@@ -54,7 +54,8 @@ from core.constants import (
 
     SCHEDULER_SVC_LOGGER_TPL,
     SCHEDULER_ACCESS_LOGGER_TPL,
-    INITIATED
+    INITIATED,
+    SKIPPED
 )
 
 from core.utils.utils import Singleton
@@ -153,7 +154,6 @@ def job_trigger_callback(*args, **kwargs):
     #Inserting into job_run_log table
     with AutoSession() as session:
         _params = {
-            'message':'tree',
             'job_id':kwargs['job_id'], 
             'status_idn':CodeStatusModel.fetch_status_idn(session, status=INITIATED).status_idn
         }
@@ -247,7 +247,7 @@ class TaskScheduler(SchedulerManager):
         SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
 
     def callback_job_remove_event(self, event):
-        message = 'EVENT_JOB_REMOVED: Remooved job with job_id:{}'.format(
+        message = 'EVENT_JOB_REMOVED: Removed job with job_id:{}'.format(
             event.job_id
         )
 
@@ -285,6 +285,16 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
+        
+        #Inserting into job_run_log table
+        with AutoSession() as session:
+            _params = {
+                'job_id':event.job_id, 
+                'status_idn':CodeStatusModel.fetch_status_idn(session, status=SKIPPED).status_idn
+            }
+            JobRunLogModel.create_run_log(session, **_params)                
+
+
 
         SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
 

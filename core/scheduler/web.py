@@ -105,7 +105,7 @@ def search_scheduled_job(session, form_data):
     scheduled_jobs = JobDetailsModel.scheduled_jobs(
         session, data_as_dict=True, schedule_type=schedule_type
     )
-
+    
     client_config_data = view_client_config()
 
     for jobs in scheduled_jobs:
