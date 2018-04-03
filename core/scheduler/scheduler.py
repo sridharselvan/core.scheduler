@@ -55,7 +55,7 @@ from core.constants import (
     SCHEDULER_SVC_LOGGER_TPL,
     SCHEDULER_ACCESS_LOGGER_TPL,
     INITIATED,
-    SKIPPED
+    MISSED
 )
 
 from core.utils.utils import Singleton
@@ -290,7 +290,7 @@ class TaskScheduler(SchedulerManager):
         with AutoSession() as session:
             _params = {
                 'job_id':event.job_id, 
-                'status_idn':CodeStatusModel.fetch_status_idn(session, status=SKIPPED).status_idn
+                'status_idn':CodeStatusModel.fetch_status_idn(session, status=MISSED).status_idn
             }
             JobRunLogModel.create_run_log(session, **_params)                
 
