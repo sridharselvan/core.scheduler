@@ -105,7 +105,7 @@ def search_scheduled_job(session, form_data):
     scheduled_jobs = JobDetailsModel.scheduled_jobs(
         session, data_as_dict=True, schedule_type=schedule_type
     )
-    
+
     client_config_data = view_client_config()
 
     for jobs in scheduled_jobs:
@@ -168,18 +168,13 @@ def deactivate_scheduled_job(session, form_data):
 
     _result, _response = rpc_response if rpc_response else (False, dict())
 
-    if _result:
 
-        # Deactivated the Job
-        deactivated_jobs = JobDetailsModel.deactivate_jobs(
-            session, job_details_idn = form_data['job_details_idn']
-        )
+    # Deactivated the Job
+    deactivated_jobs = JobDetailsModel.deactivate_jobs(
+        session, job_details_idn = form_data['job_details_idn']
+    )
 
-        _response_dict.update({'data': deactivated_jobs})
-
-    else:
-        # Report the error
-        pass
+    _response_dict.update({'data': deactivated_jobs})
 
     return _response_dict
 
@@ -230,7 +225,7 @@ def update_scheduled_job(session, form_data):
 
     if _result:
         _updates = {
-            'next_run_time': _response['next_run_time'], 
+            'next_run_time': _response['next_run_time'],
         }
         _updates.update(schedule_data)
 
