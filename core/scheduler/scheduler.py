@@ -109,7 +109,7 @@ class SchedulerManager(object):
 
         _payload = deepcopy(SCHEDULER_SVC_LOGGER_TPL)
 
-        if self.scheduler.state:
+        if self.scheduler.running:
             _payload['message'] = 'Successfully Started the Scheduler Service'
 
             SimpleCentralizedLogProducer().publish(_payload)
@@ -128,7 +128,7 @@ class SchedulerManager(object):
 
         _payload = deepcopy(SCHEDULER_SVC_LOGGER_TPL)
 
-        if not self.scheduler.state:
+        if not self.scheduler.running:
             _payload['message'] = 'Shutting Down the Scheduler Service'
 
             SimpleCentralizedLogProducer().publish(_payload)
