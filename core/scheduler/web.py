@@ -243,3 +243,22 @@ def update_scheduled_job(session, form_data):
         pass
 
     return _response_dict
+
+def check_enabled_valves(session, selected_node):
+    _response_dict = {'result': True, 'data': dict(), 'alert_type': None, 'alert_what': None, 'msg': None}    
+
+    scheduled_jobs = JobDetailsModel.scheduled_jobs(
+        session, data_as_dict=True, schedule_type="Select One"
+    )
+
+    _response_dict['is_node_available'] = False
+    _schedule_type = ''
+    for jobs in scheduled_jobs:
+        if selected_node in jobs['params']:
+            _response_dict['is_node_available'] = True
+
+            if jobs['schedule_type'] not in _schedule_type:
+                _schedule_type += (jobs['schedule_type'] + ', ')
+
+    _response_dict['data']['schedule_type'] = _schedule_type
+    return _response_dict
