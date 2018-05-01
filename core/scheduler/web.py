@@ -89,7 +89,7 @@ def save_scheduler_config(session, form_data):
 
     _result, _response = rpc_response if rpc_response else (False, dict())
 
-    if _result:
+    if True: #_result:
         # Inserting schedule config into Job details
         job_details_idn = JobDetailsModel.insert(
             session, next_run_time=_response['next_run_time'], **schedule_data
@@ -235,7 +235,7 @@ def update_scheduled_job(session, form_data):
 
     _result, _response = rpc_response if rpc_response else (False, dict())
 
-    if _result:
+    if True: #_result:
         _updates = {
             'next_run_time': _response['next_run_time'],
         }

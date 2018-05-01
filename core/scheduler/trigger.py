@@ -79,7 +79,7 @@ class IntervalTrigger(JobTrigger):
             minute=kw['run_date'].minute,
             second=kw['run_date'].second,
             args=list(),
-            kwargs=dict(job_id=job_id, event=kw['emit_event'], user_id=kw['user_id']),
+            kwargs=dict(job_id=job_id, event=kw['emit_event'], user_id=kw['user_id'], type='Daily'),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
             max_instances=SCHEDULER_MAX_INSTANCES,
         )
@@ -110,7 +110,7 @@ class CronTrigger(JobTrigger):
             minute=kw['run_date'].minute,
             second=kw['run_date'].second,
             args=list(),
-            kwargs=dict(job_id=job_id, event=kw['emit_event'], user_id=kw['user_id']),
+            kwargs=dict(job_id=job_id, event=kw['emit_event'], user_id=kw['user_id'], type='Weekly'),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
             max_instances=SCHEDULER_MAX_INSTANCES,
         )
