@@ -41,7 +41,7 @@ __all__ = [
 def save_scheduler_config(session, form_data):
 
     # TODO: move to constants
-    _response_dict = {'result': False, 'data': None, 'alert_type': None, 'alert_what': None, 'msg': None}
+    _response_dict = {'result': False, 'data': dict(), 'alert_type': None, 'alert_what': None, 'msg': None}
 
     schedule_data = dict()
     start_date = form_data['start_date']
@@ -57,7 +57,12 @@ def save_scheduler_config(session, form_data):
     schedule_data['schedule_type_idn'] = code_schedule_type.schedule_type_idn
 
     # TODO: move to constants
-    schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+    try:
+        schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        _response_dict['data']['is_invalid_date'] = True
+        return _response_dict
+
     schedule_data['job_id'] = get_unique_id()
     schedule_data['user_idn'] = get_loggedin_user_id()
 
@@ -180,7 +185,7 @@ def deactivate_scheduled_job(session, form_data):
 
 def update_scheduled_job(session, form_data):
 
-    _response_dict = {'result': True, 'data': None, 'alert_type': None, 'alert_what': None, 'msg': None}
+    _response_dict = {'result': True, 'data': dict(), 'alert_type': None, 'alert_what': None, 'msg': None}
 
     schedule_type = form_data['type']
 
@@ -198,7 +203,12 @@ def update_scheduled_job(session, form_data):
     schedule_data['schedule_type_idn'] = code_schedule_type.schedule_type_idn
 
     # TODO: move to constants
-    schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+    try:
+        schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        _response_dict['data']['is_invalid_date'] = True
+        return _response_dict
+
     schedule_data['job_id'] = job_id
     schedule_data['user_idn'] = get_loggedin_user_id()
 
