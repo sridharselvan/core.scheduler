@@ -151,8 +151,38 @@ def job_trigger_callback(*args, **kwargs):
 
     print '................. CALLED ............. {}'.format(kwargs)
 
-    #Inserting into job_run_log table
+    from core.mq import SimplePublisher
+    from core.utils.environ import get_queue_details
+
+    from core.db.model import JobDetailsModel, UserModel
+
+    queue_details = get_queue_details()
+
+    mq_producer = SimplePublisher()
+
     with AutoSession() as session:
+
+        phone_no = str(
+            UserModel.fetch_user_data(
+                session, mode='one', user_idn=kwargs['user_id']
+            ).phone_no1
+        )
+
+        #
+        # Push sms notification
+        mq_producer.publish(
+            queue_name=queue_details['central_sms_queue'][0],
+            durable=True,
+            payload=dict(
+                message='Scheduled {} Job initiated at {}'.format(
+                    kwargs['type'],
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ),
+                number=phone_no,
+            )
+        )
+
+        # Inserting into job_run_log table
         _params = {
             'job_id':kwargs['job_id'], 
             'status_idn':CodeStatusModel.fetch_status_idn(session, status=INITIATED).status_idn
@@ -327,7 +357,8 @@ class TaskScheduler(SchedulerManager):
                     run_date=date_time_object,
                     recurrence=payload['recurrence'],
                     day_of_week=payload['day_of_week'],
-                    emit_event='InitiateProcess'
+                    emit_event='InitiateProcess',
+                    user_id=payload['user_id'],
                 )
             except ConflictingIdError as error:
                 scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)

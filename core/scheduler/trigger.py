@@ -50,7 +50,7 @@ class OneTimeTrigger(JobTrigger):
             id=job_id,
             run_date=kw['run_date'].strftime('%Y-%m-%d %H:%M:%S'),
             args=list(),
-            kwargs=dict(job_id=job_id, event=kw['emit_event'], type='onetime'),
+            kwargs=dict(job_id=job_id, event=kw['emit_event'], type='onetime', user_id=kw['user_id']),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
             max_instances=SCHEDULER_MAX_INSTANCES,
         )
@@ -79,7 +79,7 @@ class IntervalTrigger(JobTrigger):
             minute=kw['run_date'].minute,
             second=kw['run_date'].second,
             args=list(),
-            kwargs=dict(job_id=job_id, event=kw['emit_event']),
+            kwargs=dict(job_id=job_id, event=kw['emit_event'], user_id=kw['user_id']),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
             max_instances=SCHEDULER_MAX_INSTANCES,
         )
@@ -110,7 +110,7 @@ class CronTrigger(JobTrigger):
             minute=kw['run_date'].minute,
             second=kw['run_date'].second,
             args=list(),
-            kwargs=dict(job_id=job_id, event=kw['emit_event']),
+            kwargs=dict(job_id=job_id, event=kw['emit_event'], user_id=kw['user_id']),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
             max_instances=SCHEDULER_MAX_INSTANCES,
         )

@@ -80,6 +80,7 @@ def save_scheduler_config(session, form_data):
     rpc_response = RPCSchedulerPublisher().publish(
         job_id=schedule_data['job_id'],
         schedule_type=schedule_type.lower(),
+        user_id=schedule_data['user_idn'],
         job_action='add',
         start_date=string_date, #schedule_data['start_date'],
         day_of_week=schedule_data['day_of_week'],
@@ -229,6 +230,7 @@ def update_scheduled_job(session, form_data):
         start_date=string_date,
         day_of_week=schedule_data['day_of_week'],
         recurrence=schedule_data['recurrence'],
+        user_id=schedule_data['user_idn']
     )
 
     _result, _response = rpc_response if rpc_response else (False, dict())
