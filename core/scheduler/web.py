@@ -28,7 +28,7 @@ from core.db.model import (
 )
 from core.backend.utils.core_utils import decode
 from core.backend.config import view_client_config
-from core.mq import RPCSchedulerPublisher
+from core.mq import SimpleSchedulerPublisher
 from core.backend.utils.core_utils import AutoSession
 # ----------- END: In-App Imports ---------- #
 
@@ -77,26 +77,43 @@ def save_scheduler_config(session, form_data):
 
     schedule_data['day_of_week'] = ','.join(week_id)
 
-    rpc_response = RPCSchedulerPublisher().publish(
+    _params = dict(
         job_id=schedule_data['job_id'],
         schedule_type=schedule_type.lower(),
-        user_id=schedule_data['user_idn'],
+        user_idn=schedule_data['user_idn'],
         job_action='add',
         start_date=string_date, #schedule_data['start_date'],
         day_of_week=schedule_data['day_of_week'],
         recurrence=schedule_data['recurrence'],
     )
 
-    _result, _response = rpc_response if rpc_response else (False, dict())
+    _result = SimpleSchedulerPublisher().publish(payload=_params)
 
-    if True: #_result:
+    if _result:
         # Inserting schedule config into Job details
         job_details_idn = JobDetailsModel.insert(
-            session, next_run_time=_response['next_run_time'], **schedule_data
+            session, **schedule_data
         ).job_details_idn
-    else:
-        # Report the error
-        pass
+
+        _response_dict.update(
+            {'result': True,
+             'alert_type': 'pop-up',
+             'level': 'INFO',
+             'alert_what': 'user',
+             'msg': 'Successfully Scheduled.'
+             }
+        )
+
+        return _response_dict
+
+    _response_dict.update(
+        {'result': False,
+         'alert_type': 'pop-up',
+         'level': 'CRITICAL',
+         'alert_what': 'user',
+         'msg': 'Message broker is not reachable.'
+         }
+    )
 
     return _response_dict
 
@@ -167,22 +184,42 @@ def deactivate_scheduled_job(session, form_data):
 
     job_id = job.job_id
 
-    rpc_response = RPCSchedulerPublisher().publish(
+    _params = dict(
         job_id=job_id,
         job_action='remove',
     )
 
-    _result, _response = rpc_response if rpc_response else (False, dict())
+    _result = SimpleSchedulerPublisher().publish(payload=_params)
 
+    if _result:
+        # Deactivated the Job
+        deactivated_jobs = JobDetailsModel.deactivate_jobs(
+            session, job_details_idn = form_data['job_details_idn']
+        )
 
-    # Deactivated the Job
-    deactivated_jobs = JobDetailsModel.deactivate_jobs(
-        session, job_details_idn = form_data['job_details_idn']
+        _response_dict.update(
+                {'result': True,
+                 'data': deactivated_jobs,
+                 'alert_type': 'pop-up',
+                 'level': 'INFO',
+                 'alert_what': 'user',
+                 'msg': 'Successfully deactivated the job.'
+                 }
+            )
+
+        return _response_dict
+
+    _response_dict.update(
+        {'result': False,
+         'alert_type': 'pop-up',
+         'level': 'CRITICAL',
+         'alert_what': 'user',
+         'msg': 'Message broker is not reachable.'
+         }
     )
 
-    _response_dict.update({'data': deactivated_jobs})
-
     return _response_dict
+
 
 def update_scheduled_job(session, form_data):
 
@@ -223,41 +260,52 @@ def update_scheduled_job(session, form_data):
 
     schedule_data['day_of_week'] = ','.join(week_id)
 
-    rpc_response = RPCSchedulerPublisher().publish(
+    _params = dict(
         job_id=schedule_data['job_id'],
         schedule_type=schedule_type.lower(),
         job_action='update',
         start_date=string_date,
         day_of_week=schedule_data['day_of_week'],
         recurrence=schedule_data['recurrence'],
-        user_id=schedule_data['user_idn']
+        user_idn=schedule_data['user_idn']
     )
 
-    _result, _response = rpc_response if rpc_response else (False, dict())
+    _result = SimpleSchedulerPublisher().publish(payload=_params)
 
-    if True: #_result:
-        _updates = {
-            'next_run_time': _response['next_run_time'],
-        }
-        _updates.update(schedule_data)
-
+    if _result:
         # Updating the scheduled Job
         updated_jobs = JobDetailsModel.update_jobs(
             session,
             where_condition={'job_details_idn': form_data['job_details_idn']},
-            updates=_updates
+            updates=schedule_data
         )
 
-        _response_dict.update({'data': updated_jobs})
+        _response_dict.update(
+            {'result': True,
+             'data': updated_jobs,
+             'alert_type': 'pop-up',
+             'level': 'INFO',
+             'alert_what': 'user',
+             'msg': 'Successfully Updated.'
+             }
+        )
 
-    else:
-        # Report the error
-        pass
+        return _response_dict
+
+    _response_dict.update(
+        {'result': False,
+         'alert_type': 'pop-up',
+         'level': 'CRITICAL',
+         'alert_what': 'user',
+         'msg': 'Message broker is not reachable.'
+         }
+    )
 
     return _response_dict
 
+
 def check_enabled_valves(session, selected_node):
-    _response_dict = {'result': True, 'data': dict(), 'alert_type': None, 'alert_what': None, 'msg': None}    
+    _response_dict = {'result': True, 'data': dict(), 'alert_type': None, 'alert_what': None, 'msg': None}
 
     scheduled_jobs = JobDetailsModel.scheduled_jobs(
         session, data_as_dict=True, schedule_type="Select One"

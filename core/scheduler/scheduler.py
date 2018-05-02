@@ -62,7 +62,7 @@ from core.utils.utils import Singleton
 
 from core.utils.environ import get_jobs_db_details
 
-from core.mq import SimpleCentralizedLogProducer
+from core.mq import SimpleCentralLogPublisher
 
 from core.scheduler.web import deactivate_completed_onetime_jobs
 
@@ -112,7 +112,7 @@ class SchedulerManager(object):
         if self.scheduler.running:
             _payload['message'] = 'Successfully Started the Scheduler Service'
 
-            SimpleCentralizedLogProducer().publish(_payload)
+            SimpleCentralLogPublisher().publish(payload=_payload)
 
             self.is_scheduler_running = True
 
@@ -121,7 +121,7 @@ class SchedulerManager(object):
             _payload['log_level'] = 'ERROR'
             _payload['status'] = 'FAILED'
 
-            SimpleCentralizedLogProducer().publish(_payload)
+            SimpleCentralLogPublisher().publish(payload=_payload)
 
     def stop(self):
         self.scheduler.stop()
@@ -131,7 +131,7 @@ class SchedulerManager(object):
         if not self.scheduler.running:
             _payload['message'] = 'Shutting Down the Scheduler Service'
 
-            SimpleCentralizedLogProducer().publish(_payload)
+            SimpleCentralLogPublisher().publish(payload=_payload)
 
             self.is_scheduler_running = False
         else:
@@ -139,7 +139,7 @@ class SchedulerManager(object):
             _payload['log_level'] = 'ERROR'
             _payload['status'] = 'FAILED'
 
-            SimpleCentralizedLogProducer().publish(_payload)
+            SimpleCentralLogPublisher().publish(payload=_payload)
 
     def restart(self):
         self.stop()
@@ -151,14 +151,12 @@ def job_trigger_callback(*args, **kwargs):
 
     print '................. CALLED ............. {}'.format(kwargs)
 
-    from core.mq import SimplePublisher
+    from core.mq import SimpleSMSPublisher
     from core.utils.environ import get_queue_details
 
     from core.db.model import JobDetailsModel, UserModel
 
     queue_details = get_queue_details()
-
-    mq_producer = SimplePublisher()
 
     with AutoSession() as session:
 
@@ -168,23 +166,21 @@ def job_trigger_callback(*args, **kwargs):
             ).phone_no1
         )
 
+        _params = dict(
+            message='Scheduled {} Job initiated at {}'.format(
+                kwargs['type'],
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ),
+            number=phone_no
+        )
+
         #
         # Push sms notification
-        mq_producer.publish(
-            queue_name=queue_details['central_sms_queue'][0],
-            durable=True,
-            payload=dict(
-                message='Scheduled {} Job initiated at {}'.format(
-                    kwargs['type'],
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                ),
-                number=phone_no,
-            )
-        )
+        SimpleSMSPublisher().publish(payload=_params)
 
         # Inserting into job_run_log table
         _params = {
-            'job_id':kwargs['job_id'], 
+            'job_id':kwargs['job_id'],
             'status_idn':CodeStatusModel.fetch_status_idn(session, status=INITIATED).status_idn
         }
         JobRunLogModel.create_run_log(session, **_params)
@@ -263,7 +259,7 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
 
-        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+        SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
     def callback_job_update_event(self, event):
         message = 'EVENT_JOB_MODIFIED: Updated job with job_id:{} to run at:{}'.format(
@@ -274,7 +270,7 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
 
-        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+        SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
     def callback_job_remove_event(self, event):
         message = 'EVENT_JOB_REMOVED: Removed job with job_id:{}'.format(
@@ -285,7 +281,7 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
 
-        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+        SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
     def callback_jobstore_event(self, event):
         pass
@@ -305,7 +301,7 @@ class TaskScheduler(SchedulerManager):
                 _updates = {'next_run_time': job.next_run_time.isoformat()}
                 JobDetailsModel.update_jobs(session, where_condition={'job_id':event.job_id}, updates=_updates)
 
-        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+        SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
     def callback_job_missed_event(self, event):
         message = 'EVENT_JOB_MISSED: Scheduled job with job_id:{} at:{} was missed !'.format(
@@ -315,18 +311,18 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
-        
+
         #Inserting into job_run_log table
         with AutoSession() as session:
             _params = {
-                'job_id':event.job_id, 
+                'job_id':event.job_id,
                 'status_idn':CodeStatusModel.fetch_status_idn(session, status=MISSED).status_idn
             }
-            JobRunLogModel.create_run_log(session, **_params)                
+            JobRunLogModel.create_run_log(session, **_params)
 
 
 
-        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+        SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
     def callback_job_error_event(self, event):
         message = 'EVENT_JOB_ERROR: Scheduled job with job_id:{} at:{} was failed !'.format(
@@ -340,7 +336,7 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl['exception'] = event.exception
         scheduler_access_tpl['error_trace'] = event.traceback
 
-        SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+        SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
     def __call__(self):
         self.start()
@@ -358,7 +354,7 @@ class TaskScheduler(SchedulerManager):
                     recurrence=payload['recurrence'],
                     day_of_week=payload['day_of_week'],
                     emit_event='InitiateProcess',
-                    user_id=payload['user_id'],
+                    user_id=payload['user_idn'],
                 )
             except ConflictingIdError as error:
                 scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
@@ -367,7 +363,7 @@ class TaskScheduler(SchedulerManager):
                 scheduler_access_tpl['error'] = str(error)
                 scheduler_access_tpl['message'] = 'Job with job_id: {} already exists'.format(job_id)
 
-                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+                SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
                 return False, scheduler_access_tpl['message']
 
@@ -378,7 +374,7 @@ class TaskScheduler(SchedulerManager):
                 scheduler_access_tpl['next_run_time'] = job.next_run_time.isoformat()
                 scheduler_access_tpl['message'] = 'Successfully scheduled {} job'.format(schedule_type)
 
-                SimpleCentralizedLogProducer().publish(**scheduler_access_tpl)
+                SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
                 return True, scheduler_access_tpl
 
