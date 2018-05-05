@@ -30,6 +30,7 @@ from core.backend.utils.core_utils import decode
 from core.backend.config import view_client_config
 from core.mq import SimpleSchedulerPublisher
 from core.backend.utils.core_utils import AutoSession
+from core.constants.code_message import filled_code_message
 # ----------- END: In-App Imports ---------- #
 
 
@@ -60,6 +61,7 @@ def save_scheduler_config(session, form_data):
     try:
         schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
     except ValueError:
+        _response_dict['msg'] = filled_code_message('CM0008')
         _response_dict['data']['is_invalid_date'] = True
         return _response_dict
 
@@ -100,7 +102,7 @@ def save_scheduler_config(session, form_data):
              'alert_type': 'pop-up',
              'level': 'INFO',
              'alert_what': 'user',
-             'msg': 'Successfully Scheduled.'
+             'msg': filled_code_message('CM0014')
              }
         )
 
@@ -111,7 +113,7 @@ def save_scheduler_config(session, form_data):
          'alert_type': 'pop-up',
          'level': 'CRITICAL',
          'alert_what': 'user',
-         'msg': 'Message broker is not reachable.'
+         'msg': filled_code_message('CM0015')
          }
     )
 
@@ -178,7 +180,7 @@ def deactivate_scheduled_job(session, form_data):
                                'data': None,
                                'alert_type': 'alert',
                                'alert_what': None,
-                               'msg': 'Job does not available for deactivation'
+                               'msg': filled_code_message('CM0016')
                                })
         return _response_dict
 
@@ -203,7 +205,7 @@ def deactivate_scheduled_job(session, form_data):
                  'alert_type': 'pop-up',
                  'level': 'INFO',
                  'alert_what': 'user',
-                 'msg': 'Successfully deactivated the job.'
+                 'msg': filled_code_message('CM0017')
                  }
             )
 
@@ -214,7 +216,7 @@ def deactivate_scheduled_job(session, form_data):
          'alert_type': 'pop-up',
          'level': 'CRITICAL',
          'alert_what': 'user',
-         'msg': 'Message broker is not reachable.'
+         'msg': filled_code_message('CM0015')
          }
     )
 
@@ -244,6 +246,7 @@ def update_scheduled_job(session, form_data):
     try:
         schedule_data['start_date'] = datetime.strptime(string_date, "%Y-%m-%d %H:%M:%S")
     except ValueError:
+        _response_dict['msg'] = filled_code_message('CM0008')
         _response_dict['data']['is_invalid_date'] = True
         return _response_dict
 
@@ -286,7 +289,7 @@ def update_scheduled_job(session, form_data):
              'alert_type': 'pop-up',
              'level': 'INFO',
              'alert_what': 'user',
-             'msg': 'Successfully Updated.'
+             'msg': filled_code_message('CM0018')
              }
         )
 
@@ -297,7 +300,7 @@ def update_scheduled_job(session, form_data):
          'alert_type': 'pop-up',
          'level': 'CRITICAL',
          'alert_what': 'user',
-         'msg': 'Message broker is not reachable.'
+         'msg': filled_code_message('CM0015')
          }
     )
 
