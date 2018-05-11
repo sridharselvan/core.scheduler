@@ -55,19 +55,21 @@ from core.constants import (
     SCHEDULER_SVC_LOGGER_TPL,
     SCHEDULER_ACCESS_LOGGER_TPL,
     INITIATED,
-    MISSED
+    MISSED,
+
+    CONSTANT_EVENT_SCHEDULE_INITIATED
 )
 
 from core.utils.utils import Singleton
 
-from core.utils.environ import get_jobs_db_details
+from core.utils.environ import get_jobs_db_details, get_queue_details
 
-from core.mq import SimpleCentralLogPublisher
+from core.mq import SimpleCentralLogPublisher, SimpleSMSPublisher
 
 from core.scheduler.web import deactivate_completed_onetime_jobs
 
 from core.db.model import (
-    JobRunLogModel, CodeStatusModel, JobDetailsModel
+    JobRunLogModel, CodeStatusModel, JobDetailsModel, UserModel
 )
 
 from core.backend.utils.core_utils import AutoSession
@@ -152,11 +154,6 @@ def job_trigger_callback(*args, **kwargs):
 
     print '................. CALLED ............. {}'.format(kwargs)
 
-    from core.mq import SimpleSMSPublisher
-    from core.utils.environ import get_queue_details
-
-    from core.db.model import JobDetailsModel, UserModel
-
     queue_details = get_queue_details()
 
     with AutoSession() as session:
@@ -169,8 +166,8 @@ def job_trigger_callback(*args, **kwargs):
 
         _params = dict(
             message=filled_code_message(
-                'CM0021', 
-                schedule_type=kwargs['type'], 
+                'CM0021',
+                schedule_type=kwargs['type'],
                 current_datetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ),
             number=phone_no
@@ -178,7 +175,9 @@ def job_trigger_callback(*args, **kwargs):
 
         #
         # Push sms notification
-        SimpleSMSPublisher().publish(sms_event='schedule initiated', user_idn=kwargs['user_id'], payload=_params)
+        SimpleSMSPublisher().publish(
+            sms_event=CONSTANT_EVENT_SCHEDULE_INITIATED, user_idn=kwargs['user_id'], payload=_params
+        )
 
         # Inserting into job_run_log table
         _params = {
@@ -263,8 +262,8 @@ class TaskScheduler(SchedulerManager):
 
     def callback_job_update_event(self, event):
         message = filled_code_message(
-            'CM0023', 
-            job_id=event.job_id, 
+            'CM0023',
+            job_id=event.job_id,
             next_run_time=event.scheduled_run_time.isoformat()
         )
 
@@ -288,8 +287,8 @@ class TaskScheduler(SchedulerManager):
 
     def callback_job_executed_event(self, event):
         message = filled_code_message(
-            'CM0025', 
-            job_id=event.job_id, 
+            'CM0025',
+            job_id=event.job_id,
             next_run_time=event.scheduled_run_time.isoformat()
         )
 
@@ -307,8 +306,8 @@ class TaskScheduler(SchedulerManager):
 
     def callback_job_missed_event(self, event):
         message = filled_code_message(
-            'CM0026', 
-            job_id=event.job_id, 
+            'CM0026',
+            job_id=event.job_id,
             next_run_time=event.scheduled_run_time.isoformat()
         )
 
@@ -330,8 +329,8 @@ class TaskScheduler(SchedulerManager):
 
     def callback_job_error_event(self, event):
         message = filled_code_message(
-            'CM0027', 
-            job_id=event.job_id, 
+            'CM0027',
+            job_id=event.job_id,
             next_run_time=event.scheduled_run_time.isoformat()
         )
 
