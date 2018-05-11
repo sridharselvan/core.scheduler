@@ -178,7 +178,7 @@ def job_trigger_callback(*args, **kwargs):
 
         #
         # Push sms notification
-        SimpleSMSPublisher().publish(payload=_params)
+        SimpleSMSPublisher().publish(sms_event='schedule initiated', user_idn=kwargs['user_id'], payload=_params)
 
         # Inserting into job_run_log table
         _params = {
