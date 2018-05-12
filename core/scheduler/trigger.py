@@ -18,6 +18,7 @@ import itertools
 
 # ----------- START: In-App Imports ---------- #
 from core.constants import (
+    DATETIME_FORMAT,
     SCHEDULER_MAX_INSTANCES,
     SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS
 )
@@ -48,7 +49,7 @@ class OneTimeTrigger(JobTrigger):
             callback,
             trigger='date',
             id=job_id,
-            run_date=kw['run_date'].strftime('%Y-%m-%d %H:%M:%S'),
+            run_date=kw['run_date'].strftime(DATETIME_FORMAT),
             args=list(),
             kwargs=dict(job_id=job_id, event=kw['emit_event'], type='onetime', user_id=kw['user_id']),
             misfire_grace_time=SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS,
@@ -73,7 +74,7 @@ class IntervalTrigger(JobTrigger):
             callback,
             trigger='cron',
             id=job_id,
-            start_date=kw['run_date'].strftime('%Y-%m-%d %H:%M:%S'),
+            start_date=kw['run_date'].strftime(DATETIME_FORMAT),
             day='{}'.format(kw['recurrence']),
             hour=kw['run_date'].hour,
             minute=kw['run_date'].minute,
@@ -101,7 +102,7 @@ class CronTrigger(JobTrigger):
             callback,
             trigger='cron',
             id=job_id,
-            start_date=kw['run_date'].strftime('%Y-%m-%d %H:%M:%S'),
+            start_date=kw['run_date'].strftime(DATETIME_FORMAT),
             #week='',# '{}'.format(kw['recurrence']),
             #day_of_week='1st sun, 2nd tue', #'{}'.format(kw['day_of_week']),
             day=_day,
