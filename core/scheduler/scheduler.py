@@ -46,6 +46,9 @@ from apscheduler.events import (
 
 # ----------- START: In-App Imports ---------- #
 from core.constants import (
+
+    DATETIME_FORMAT,
+
     SCHEDULER_COALESCE,
     SCHEDULER_MAX_INSTANCES,
     SCHEDULER_DEFAULT_DELAY_BY_SECS,
@@ -56,6 +59,8 @@ from core.constants import (
     SCHEDULER_ACCESS_LOGGER_TPL,
     INITIATED,
     MISSED,
+    ERROR,
+    COMPLETED,
 
     CONSTANT_EVENT_SCHEDULE_INITIATED
 )
@@ -152,8 +157,6 @@ class SchedulerManager(object):
 
 def job_trigger_callback(*args, **kwargs):
 
-    print '................. CALLED ............. {}'.format(kwargs)
-
     queue_details = get_queue_details()
 
     with AutoSession() as session:
@@ -168,7 +171,7 @@ def job_trigger_callback(*args, **kwargs):
             message=filled_code_message(
                 'CM0021',
                 schedule_type=kwargs['type'],
-                current_datetime=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                current_datetime=datetime.now().strftime(DATETIME_FORMAT)
             ),
             number=phone_no
         )
@@ -258,18 +261,30 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
 
+        job = self.scheduler.get_job(job_id=event.job_id)
+        if job:
+            with AutoSession() as session:
+                _updates = {'next_run_time': job.next_run_time.strftime(DATETIME_FORMAT)}
+                JobDetailsModel.update_jobs(session, where_condition={'job_id':event.job_id}, updates=_updates)
+
         SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
     def callback_job_update_event(self, event):
         message = filled_code_message(
             'CM0023',
             job_id=event.job_id,
-            next_run_time=event.scheduled_run_time.isoformat()
+            next_run_time=event.scheduled_run_time.strftime(DATETIME_FORMAT)
         )
 
         scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
+
+        job = self.scheduler.get_job(job_id=event.job_id)
+        if job:
+            with AutoSession() as session:
+                _updates = {'next_run_time': job.next_run_time.strftime(DATETIME_FORMAT)}
+                JobDetailsModel.update_jobs(session, where_condition={'job_id':event.job_id}, updates=_updates)
 
         SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
@@ -289,7 +304,7 @@ class TaskScheduler(SchedulerManager):
         message = filled_code_message(
             'CM0025',
             job_id=event.job_id,
-            next_run_time=event.scheduled_run_time.isoformat()
+            next_run_time=event.scheduled_run_time.strftime(DATETIME_FORMAT)
         )
 
         scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
@@ -299,31 +314,35 @@ class TaskScheduler(SchedulerManager):
 
         if job:
             with AutoSession() as session:
-                _updates = {'next_run_time': job.next_run_time.isoformat()}
+                _updates = {'next_run_time': job.next_run_time.strftime(DATETIME_FORMAT)}
                 JobDetailsModel.update_jobs(session, where_condition={'job_id':event.job_id}, updates=_updates)
 
         SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
     def callback_job_missed_event(self, event):
+
         message = filled_code_message(
             'CM0026',
             job_id=event.job_id,
-            next_run_time=event.scheduled_run_time.isoformat()
+            next_run_time=event.scheduled_run_time.strftime(DATETIME_FORMAT)
         )
 
         scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
         scheduler_access_tpl['job_id'] = event.job_id
         scheduler_access_tpl['message'] = message
 
-        #Inserting into job_run_log table
         with AutoSession() as session:
             _params = {
                 'job_id':event.job_id,
                 'status_idn':CodeStatusModel.fetch_status_idn(session, status=MISSED).status_idn
             }
+
+            # Inserting into job_run_log table
             JobRunLogModel.create_run_log(session, **_params)
 
-
+            #
+            # Deactivate the job if it's onetime
+            JobDetailsModel.deactivate_job_if_onetime(session, job_id=event.job_id)
 
         SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
 
@@ -331,7 +350,7 @@ class TaskScheduler(SchedulerManager):
         message = filled_code_message(
             'CM0027',
             job_id=event.job_id,
-            next_run_time=event.scheduled_run_time.isoformat()
+            next_run_time=event.scheduled_run_time.strftime(DATETIME_FORMAT)
         )
 
         scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
@@ -342,6 +361,19 @@ class TaskScheduler(SchedulerManager):
         scheduler_access_tpl['error_trace'] = event.traceback
 
         SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
+
+        with AutoSession() as session:
+            _params = {
+                'job_id':event.job_id,
+                'status_idn':CodeStatusModel.fetch_status_idn(session, status=ERROR).status_idn
+            }
+
+            # Inserting into job_run_log table
+            JobRunLogModel.create_run_log(session, **_params)
+
+            #
+            # Deactivate the job if it's onetime
+            JobDetailsModel.deactivate_job_if_onetime(session, job_id=event.job_id)
 
     def __call__(self):
         self.start()
@@ -376,7 +408,7 @@ class TaskScheduler(SchedulerManager):
 
                 scheduler_access_tpl = deepcopy(SCHEDULER_ACCESS_LOGGER_TPL)
                 scheduler_access_tpl['job_id'] = job.id
-                scheduler_access_tpl['next_run_time'] = job.next_run_time.isoformat()
+                scheduler_access_tpl['next_run_time'] = job.next_run_time.strftime(DATETIME_FORMAT)
                 scheduler_access_tpl['message'] = filled_code_message('CM0029', schedule_type=schedule_type)
 
                 SimpleCentralLogPublisher().publish(payload=scheduler_access_tpl)
