@@ -20,13 +20,12 @@ from datetime import datetime
 
 # ----------- START: In-App Imports ---------- #
 from core.backend.utils.core_utils import (
-    get_unique_id, AutoSession, get_loggedin_user_id
+    get_unique_id, AutoSession, get_loggedin_user_id, decode
 )
 
 from core.db.model import (
-    CodeScheduleTypeModel, JobDetailsModel, UserModel
+    CodeScheduleTypeModel, JobDetailsModel, UserModel, ConfigUserSmsModel
 )
-from core.backend.utils.core_utils import decode
 from core.backend.config import view_client_config
 from core.mq import SimpleSchedulerPublisher
 from core.backend.utils.core_utils import AutoSession
@@ -324,4 +323,25 @@ def check_enabled_valves(session, selected_node):
                 _schedule_type += (jobs['schedule_type'] + ', ')
 
     _response_dict['data']['schedule_type'] = _schedule_type
+    return _response_dict
+
+def get_sms_config(session):
+    _response_dict = {'result': True, 'data': dict(), 'alert_type': None, 'alert_what': None, 'msg': None}
+
+    user_idn = get_loggedin_user_id()
+    sms_config_data = ConfigUserSmsModel.fetch_sms_config(session, user_idn=user_idn)
+
+    _response_dict['data'] = sms_config_data
+    return _response_dict
+
+def update_sms_config(session, form_data):
+    _response_dict = {'result': True, 'data': dict(), 'alert_type': None, 'alert_what': None, 'msg': None}
+
+    updated_sms_config = ConfigUserSmsModel.update(
+        session, 
+        updates={'is_active': form_data['is_active']}, 
+        where_condition={'config_user_sms_idn': form_data['config_user_sms_idn']}
+    )
+
+    _response_dict['data'] = updated_sms_config
     return _response_dict
