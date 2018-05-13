@@ -17,17 +17,21 @@ import itertools
 # ----------- END: Third Party Imports ---------- #
 
 # ----------- START: In-App Imports ---------- #
-from core.constants import (
-    DATETIME_FORMAT,
-    SCHEDULER_MAX_INSTANCES,
-    SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS
-)
+from core.constants import DATETIME_FORMAT
 
 from core.utils.utils import get_ordinal
+
+from core.utils.environ import get_scheduler_config_details
 # ----------- START: In-App Imports ---------- #
 
 
 __all__ = []
+
+
+scheduler_config = get_scheduler_config_details()
+
+SCHEDULER_MAX_INSTANCES = scheduler_config['max_instances']
+SCHEDULER_MISFIRE_GRACE_TIME_IN_SECS = scheduler_config['misfire_grace_time_in_secs']
 
 
 class JobTrigger(object):

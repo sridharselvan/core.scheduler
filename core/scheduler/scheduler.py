@@ -49,11 +49,11 @@ from core.constants import (
 
     DATETIME_FORMAT,
 
-    SCHEDULER_COALESCE,
-    SCHEDULER_MAX_INSTANCES,
-    SCHEDULER_DEFAULT_DELAY_BY_SECS,
-    SCHEDULER_THREAD_POOL_EXECUTOR_COUNT,
-    SCHEDULER_PROCESS_POOL_EXECUTOR_COUNT,
+    #SCHEDULER_COALESCE,
+    #SCHEDULER_MAX_INSTANCES,
+    #SCHEDULER_DEFAULT_DELAY_BY_SECS,
+    #SCHEDULER_THREAD_POOL_EXECUTOR_COUNT,
+    #SCHEDULER_PROCESS_POOL_EXECUTOR_COUNT,
 
     SCHEDULER_SVC_LOGGER_TPL,
     SCHEDULER_ACCESS_LOGGER_TPL,
@@ -67,7 +67,9 @@ from core.constants import (
 
 from core.utils.utils import Singleton
 
-from core.utils.environ import get_jobs_db_details, get_queue_details
+from core.utils.environ import (
+    get_jobs_db_details, get_queue_details, get_scheduler_config_details
+)
 
 from core.mq import SimpleCentralLogPublisher, SimpleSMSPublisher
 
@@ -83,6 +85,15 @@ from core.constants.code_message import filled_code_message
 
 
 __all__ = []
+
+
+scheduler_config = get_scheduler_config_details()
+
+SCHEDULER_COALESCE = scheduler_config['coalesce']
+SCHEDULER_MAX_INSTANCES = scheduler_config['max_instances']
+SCHEDULER_DEFAULT_DELAY_BY_SECS = scheduler_config['default_schedule_delay_by_secs']
+SCHEDULER_THREAD_POOL_EXECUTOR_COUNT = scheduler_config['thread_pool_executor_count']
+SCHEDULER_PROCESS_POOL_EXECUTOR_COUNT = scheduler_config['process_pool_executor_count']
 
 
 class SchedulerManager(object):
